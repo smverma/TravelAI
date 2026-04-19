@@ -11,7 +11,7 @@ interface PDFExportProps {
 interface TextOptions {
   maxWidth?: number;
   fontSize?: number;
-  fontStyle?: string;
+  fontStyle?: 'normal' | 'bold' | 'italic';
   color?: [number, number, number];
 }
 
@@ -36,7 +36,7 @@ export default function PDFExport({ itinerary }: PDFExportProps) {
 
       const addText = (text: string, x: number, y: number, options?: TextOptions) => {
         if (options?.fontSize) pdf.setFontSize(options.fontSize);
-        if (options?.fontStyle) pdf.setFont('helvetica', options.fontStyle as 'normal' | 'bold' | 'italic');
+        if (options?.fontStyle) pdf.setFont('helvetica', options.fontStyle);
         if (options?.color) pdf.setTextColor(...options.color);
         if (options?.maxWidth) {
           pdf.text(text, x, y, { maxWidth: options.maxWidth });

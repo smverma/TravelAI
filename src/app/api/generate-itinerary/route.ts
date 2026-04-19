@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      throw new Error('No valid JSON found in response');
+      throw new Error('Failed to extract JSON from AI response. The response may be malformed or empty.');
     }
 
     const itinerary = JSON.parse(text.slice(firstBrace, lastBrace + 1));
