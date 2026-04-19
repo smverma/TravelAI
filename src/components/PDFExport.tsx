@@ -8,6 +8,13 @@ interface PDFExportProps {
   itinerary: Itinerary;
 }
 
+interface TextOptions {
+  maxWidth?: number;
+  fontSize?: number;
+  fontStyle?: string;
+  color?: [number, number, number];
+}
+
 export default function PDFExport({ itinerary }: PDFExportProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -27,7 +34,7 @@ export default function PDFExport({ itinerary }: PDFExportProps) {
         }
       };
 
-      const addText = (text: string, x: number, y: number, options?: { maxWidth?: number; fontSize?: number; fontStyle?: string; color?: [number, number, number] }) => {
+      const addText = (text: string, x: number, y: number, options?: TextOptions) => {
         if (options?.fontSize) pdf.setFontSize(options.fontSize);
         if (options?.fontStyle) pdf.setFont('helvetica', options.fontStyle as 'normal' | 'bold' | 'italic');
         if (options?.color) pdf.setTextColor(...options.color);

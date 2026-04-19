@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { TripFormData } from '@/types';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
 export async function POST(request: NextRequest) {
   try {
     const formData: TripFormData = await request.json();
@@ -15,6 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const prompt = buildPrompt(formData);
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -22,13 +21,14 @@ export async function POST(request: NextRequest) {
     const response = await result.response;
     const text = response.text();
 
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Extract the outermost JSON object from the response
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
       throw new Error('No valid JSON found in response');
     }
 
-    const itinerary = JSON.parse(jsonMatch[0]);
+    const itinerary = JSON.parse(text.slice(firstBrace, lastBrace + 1));
     return NextResponse.json(itinerary);
   } catch (error) {
     console.error('Error generating itinerary:', error);
