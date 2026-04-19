@@ -1,19 +1,47 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import Link from 'next/link';
 import CategoryTiles from '@/components/CategoryTiles';
 import TripForm from '@/components/TripForm';
 import ItineraryDisplay from '@/components/ItineraryDisplay';
 import PDFExport from '@/components/PDFExport';
+import PredefinedPackages from '@/components/PredefinedPackages';
 import { TripFormData, Itinerary } from '@/types';
 
+interface PredefinedPackage {
+  id: string;
+  title: string;
+  description: string;
+  destination: string;
+  duration: number;
+  travelStyle: string;
+  budget: string;
+  category: string;
+  imageEmoji: string;
+  highlights: string[];
+}
+
 export default function Home() {
+  const { data: session } = useSession();
   const [selectedDestination, setSelectedDestination] = useState<string>('');
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
+  const [currentFormData, setCurrentFormData] = useState<TripFormData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [predefinedPackages, setPredefinedPackages] = useState<PredefinedPackage[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
   const formRef = useRef<HTMLDivElement>(null);
   const itineraryRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/api/packages/predefined')
+      .then((r) => r.json())
+      .then((data) => setPredefinedPackages(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const handleSelectDestination = (destination: string) => {
     setSelectedDestination(destination);
@@ -24,6 +52,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setItinerary(null);
+    setCurrentFormData(formData);
+    setSaveMsg('');
 
     try {
       const response = await fetch('/api/generate-itinerary', {
@@ -49,8 +79,71 @@ export default function Home() {
     }
   };
 
+  const handleSaveTrip = async () => {
+    if (!itinerary || !currentFormData) return;
+    setSaving(true);
+    setSaveMsg('');
+
+    const res = await fetch('/api/packages/saved', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${currentFormData.destination} — ${currentFormData.duration} days`,
+        destination: currentFormData.destination,
+        duration: currentFormData.duration,
+        formData: currentFormData,
+        itinerary,
+      }),
+    });
+
+    if (res.ok) {
+      setSaveMsg('✅ Trip saved to your dashboard!');
+    } else {
+      setSaveMsg('❌ Failed to save. Please try again.');
+    }
+    setSaving(false);
+  };
+
+  const userRole = (session?.user as { role?: string })?.role;
+
   return (
     <main className="min-h-screen bg-gray-50">
+      {/* Nav */}
+      <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-40 px-4 py-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <Link href="/" className="text-xl font-extrabold text-orange-500">✈️ TravelAI</Link>
+          <div className="flex items-center gap-3">
+            {session ? (
+              <>
+                <Link href="/dashboard" className="text-sm font-semibold text-gray-600 hover:text-orange-500 transition-colors">
+                  📚 My Trips
+                </Link>
+                {userRole === 'ADMIN' && (
+                  <Link href="/admin" className="text-sm font-semibold text-gray-600 hover:text-orange-500 transition-colors">
+                    ⚙️ Admin
+                  </Link>
+                )}
+                <button
+                  onClick={() => signOut()}
+                  className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-semibold transition-colors"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/login" className="text-sm font-semibold text-gray-600 hover:text-orange-500 transition-colors">
+                  Sign In
+                </Link>
+                <Link href="/auth/register" className="text-sm bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-lg font-semibold transition-colors">
+                  Register
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -74,6 +167,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Featured Packages */}
+      <PredefinedPackages packages={predefinedPackages} onSelect={handleSelectDestination} />
 
       {/* Category Tiles */}
       <CategoryTiles onSelectDestination={handleSelectDestination} />
@@ -127,6 +223,29 @@ export default function Home() {
           </div>
           <ItineraryDisplay itinerary={itinerary} />
           <PDFExport itinerary={itinerary} />
+
+          {/* Save Trip Button */}
+          <div className="max-w-4xl mx-auto px-4 mt-4 text-center">
+            {session ? (
+              <>
+                <button
+                  onClick={handleSaveTrip}
+                  disabled={saving}
+                  className="bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-bold px-8 py-3 rounded-2xl transition-all disabled:opacity-60 shadow-md"
+                >
+                  {saving ? 'Saving...' : '💾 Save Trip to Dashboard'}
+                </button>
+                {saveMsg && (
+                  <p className="mt-3 text-sm font-semibold text-gray-600">{saveMsg}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">
+                <Link href="/auth/login" className="text-orange-500 font-semibold hover:underline">Sign in</Link>
+                {' '}to save this itinerary to your dashboard.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -139,4 +258,3 @@ export default function Home() {
     </main>
   );
 }
-
