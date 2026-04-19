@@ -25,10 +25,17 @@ export async function POST(request: NextRequest) {
     const firstBrace = text.indexOf('{');
     const lastBrace = text.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      throw new Error('Failed to extract JSON from AI response. The response may be malformed or empty.');
+      const preview = text.slice(0, 200);
+      throw new Error(`Failed to extract JSON from AI response. Response preview: "${preview}"`);
     }
 
-    const itinerary = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    let itinerary;
+    try {
+      itinerary = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    } catch (parseError) {
+      const preview = text.slice(firstBrace, firstBrace + 200);
+      throw new Error(`AI response contained invalid JSON. Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}. JSON preview: "${preview}"`);
+    }
     return NextResponse.json(itinerary);
   } catch (error) {
     console.error('Error generating itinerary:', error);
